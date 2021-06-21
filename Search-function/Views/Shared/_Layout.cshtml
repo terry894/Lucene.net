@@ -1,7 +1,8 @@
 ﻿<!DOCTYPE html>
+
 <html>
 <head>
-    <meta charset="utf-8" />
+    <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@ViewBag.Title - My ASP.NET Application</title>
     <link href="~/Content/Site.css" rel="stylesheet" type="text/css" />
@@ -22,7 +23,7 @@
                 event.preventDefault();
                 var text = $('#srch-term').val();
                 if (text.length > 0) {
-                    var url = '/Home/Search?text=' + encodeURIComponent(text);
+                    var url = '/Home/Search?text=' + encodeURIComponent(text,"utf-8");
                     window.location.href = url;
                 }
             });
@@ -30,6 +31,8 @@
     </script>
 </head>
 <body>
+
+
     <div class="navbar navbar-inverse navbar-fixed-top">
         <div class="container">
             <div class="navbar-header">

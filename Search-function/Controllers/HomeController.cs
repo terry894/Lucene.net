@@ -34,30 +34,36 @@ namespace Search_function.Controllers
         {
             var path = Server.MapPath("/Index-lucene");
             int numberOfFiles = System.IO.Directory.GetFiles(path).Length;
-            var searchText = Request.QueryString.ToString();
+            var searchText = HttpUtility.UrlDecode(Request.QueryString.ToString());
             string output = searchText.Substring(searchText.IndexOf('=') + 1);
             string searchWord = output.Replace('+', ' ');
             ViewBag.YourSearch = searchWord;
             if (numberOfFiles != 0 && output.Length > 0)
             {
-                Lucene.Net.Store.Directory dir = FSDirectory.Open(path);
+                Lucene.Net.Store.Directory dir = FSDirectory.Open(path); // index 파일 가져옴
                 Analyzer analyzer = new StandardAnalyzer(Lucene.Net.Util.Version.LUCENE_29);
-                IndexReader indexReader = IndexReader.Open(dir, true);
+                IndexReader indexReader = IndexReader.Open(dir, true); //IndexReader, IndexSearcher, IndexWriter 는 하나의 인덱스 파일만 바라봄  
+
                 Searcher indexSearch = new IndexSearcher(indexReader);
 
                 try
                 {
                     var startSearchTime = DateTime.Now.TimeOfDay;
                     string totaltimeTakenToSearch = string.Empty;
+
                     var queryParser = new MultiFieldQueryParser(Lucene.Net.Util.Version.LUCENE_29, new string[] { "metaTag", "prevewContent", "fileNameWithoutExtension" }, analyzer);
-                    var query = queryParser.Parse(searchWord);
+                    var query = queryParser.Parse(searchWord); // 조회시 사용할 쿼리 작업 
                     //ViewBag.SearchQuery = "Searching for: \"" + searchWord + "\"";
-                    TopDocs resultDocs = indexSearch.Search(query, indexReader.NumDocs());
-                    ViewBag.SearchQuery = resultDocs.TotalHits + " result(s) found for \"" + searchWord + "\"";
+
+                    TopDocs resultDocs = indexSearch.Search(query, indexReader.NumDocs()); //Doc index로 조회한 후 결과정보가 담긴 document 
                     TopScoreDocCollector collector = TopScoreDocCollector.Create(20000, true);
-                    indexSearch.Search(query, collector);
-                    ScoreDoc[] hits = collector.TopDocs().ScoreDocs;
-                    IFormatter formatter = new SimpleHTMLFormatter("<span style=\"color: black; font-weight: bold;\">", "</span>");
+                    ViewBag.SearchQuery = resultDocs.TotalHits + " result(s) found for \"" + searchWord + "\"";
+
+                    
+                    indexSearch.Search(query, collector); //query필요한 문서를 찾아서 정보를 collector 에게 넘겨줌
+                    ScoreDoc[] hits = collector.TopDocs().ScoreDocs; // collector가 문서를 추출 
+
+                    IFormatter formatter = new SimpleHTMLFormatter("<span style=\"color: black; font-weight: bold;\">", "</span>"); 
                     SimpleFragmenter fragmenter = new SimpleFragmenter(160);
                     QueryScorer scorer = new QueryScorer(query);
                     Highlighter highlighter = new Highlighter(formatter, scorer);
@@ -65,14 +71,14 @@ namespace Search_function.Controllers
                     List<ListofResult> parts = new List<ListofResult>();
                     for (int i = 0; i < hits.Length; i++)
                     {
-                        int docId = hits[i].Doc;
+                        int docId = hits[i].Doc; // resultDocs .ScoreDocs[0].Doc 을 사용 해도 될 듯 ? 
                         float score = hits[i].Score;
-                        Document doc = indexSearch.Doc(docId);
+                        Document doc = indexSearch.Doc(docId); // 문서 아이디로 해당 문서 조회 
                         string url = doc.Get("URL");
                         string title = doc.Get("filename");
                         TokenStream stream = analyzer.TokenStream("", new StringReader(doc.Get("prevewContent")));
-                        string content = highlighter.GetBestFragments(stream, doc.Get("prevewContent"), 3, "...");
-                        if (content == null || content == "")
+                        string content = highlighter.GetBestFragments(stream, doc.Get("prevewContent"), 3, "..."); //검색문장 강조 
+                        if (content == null || content == "") // 
                         {
                             string contents = doc.Get("prevewContent");
                             if (contents != "")
@@ -116,7 +122,7 @@ namespace Search_function.Controllers
         }
 
         [HttpPost]
-        public ActionResult UploadFile(HttpPostedFileBase uploadDocument)
+        public ActionResult UploadFile(HttpPostedFileBase uploadDocument, string submitButton)
         {
             if (uploadDocument != null)
             {
@@ -125,7 +131,7 @@ namespace Search_function.Controllers
                 //Converting pdf and docx file into txt                            
                 string fileLocation = Server.MapPath("/Documents");
                 textConverter textConverter = new textConverter(fileLocation);
-                textConverter.pdfConverted();
+                textConverter.pdfConverted(); 
                 textConverter.docxConverted();
                 //end converting
                 //Start indexing
@@ -135,6 +141,8 @@ namespace Search_function.Controllers
                 DirectoryInfo indexInfo = new DirectoryInfo(indexPath);
                 DirectoryInfo dataInfo = new DirectoryInfo(pdfPath);
                 DirectoryInfo dataInfo1 = new DirectoryInfo(pagePath);
+                //저장 방식
+                //디렉토리 open
                 Lucene.Net.Store.Directory indexDir = FSDirectory.Open(
                                                                  indexInfo, _LockFactory);
                 //Delete previous index first

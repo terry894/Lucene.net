@@ -2,9 +2,10 @@
     ViewBag.Title = "UploadFile";
 }
 
+
 <h3>UploadFile</h3>
 
-@using (Html.BeginForm("UploadFile", "Home", FormMethod.Post, new { enctype = "multipart/form-data" })) 
+@using (Html.BeginForm("UploadFile", "Home", FormMethod.Post, new { enctype = "multipart/form-data" }))
 {
     @Html.AntiForgeryToken()
     <p>@ViewBag.numIndexed</p>
@@ -22,6 +23,8 @@
             <div class="col-md-offset-2 col-md-10">
                 <input type="submit" value="Upload" class="btn btn-default" />
             </div>
+
         </div>
+
     </div>
 }
