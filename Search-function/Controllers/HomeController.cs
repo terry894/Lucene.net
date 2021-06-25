@@ -18,6 +18,7 @@ using Lucene.Net.Search;
 using Lucene.Net.QueryParsers;
 using Lucene.Net.Search.Highlight;
 using System.Data;
+using Microsoft.VisualBasic;
 
 namespace Search_function.Controllers
 {
@@ -130,25 +131,26 @@ namespace Search_function.Controllers
                 uploadDocument.SaveAs(docSavePath);
                 //Converting pdf and docx file into txt                            
                 string fileLocation = Server.MapPath("/Documents");
-                textConverter textConverter = new textConverter(fileLocation);
+                textConverter textConverter = new textConverter(fileLocation, docSavePath);
                 textConverter.pdfConverted(); 
                 textConverter.docxConverted();
                 //end converting
                 //Start indexing
-                string pdfPath = Server.MapPath("/temp");
-                string pagePath = Server.MapPath("/");
+                string txtPath = Server.MapPath("/temp");
+                //string pagePath = Server.MapPath("/");
                 string indexPath = Server.MapPath("/Index-lucene");
+                DirectoryInfo dataInfo = new DirectoryInfo(txtPath);
+                //DirectoryInfo dataInfo1 = new DirectoryInfo(pagePath);
                 DirectoryInfo indexInfo = new DirectoryInfo(indexPath);
-                DirectoryInfo dataInfo = new DirectoryInfo(pdfPath);
-                DirectoryInfo dataInfo1 = new DirectoryInfo(pagePath);
                 //저장 방식
                 //디렉토리 open
+                //파일 시스템에 색인 파일을 저장하는 디렉토리 구현의 기본 클래스
                 Lucene.Net.Store.Directory indexDir = FSDirectory.Open(
                                                                  indexInfo, _LockFactory);
                 //Delete previous index first
                 DeleteIndex(indexInfo, indexPath);
                 //Generate new index
-                var numIndexed = FileIndex(indexDir, dataInfo, dataInfo1);
+                var numIndexed = FileIndex(indexDir, dataInfo);
                 //end indexing
                 ViewBag.numIndexed += "Number of file indexed: " + numIndexed;
             }
@@ -176,31 +178,11 @@ namespace Search_function.Controllers
             }
         }
 
-        private static int FileIndex(Lucene.Net.Store.Directory indexDir, DirectoryInfo dataInfo, DirectoryInfo dataInfo1)
+        private static int FileIndex(Lucene.Net.Store.Directory indexDir, DirectoryInfo dataInfo)
         {
             Analyzer anlalyzer = new StandardAnalyzer(Lucene.Net.Util.Version.LUCENE_29);
             var writer = new IndexWriter(indexDir, anlalyzer, true, IndexWriter.MaxFieldLength.UNLIMITED);
             writer.SetMergePolicy(new LogDocMergePolicy(writer));
-            //writer.SetMergeFactor(5);
-            try
-            {
-                string[] searchPatterns = { "*.cshtml", "*.aspx", "*.html", "*.php" };
-                var paths1 = searchPatterns.AsParallel().SelectMany(searchPattern => dataInfo1.EnumerateFiles(searchPattern, SearchOption.AllDirectories));
-                foreach (var path in paths1)
-                {
-                    string filename = path.Name;
-                    //Do not index _ViewStart and _Layout page
-                    if (filename != "_ViewStart.cshtml" && filename != "_Layout.cshtml" && filename != "path.txt")
-                    {
-                        IndexFile(writer, path);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                writer.Dispose();
-                throw ex;
-            }
             try
             {
                 var paths = dataInfo.EnumerateFiles("*.txt", SearchOption.AllDirectories);
@@ -233,7 +215,7 @@ namespace Search_function.Controllers
             Lucene.Net.Documents.Document doc = new Lucene.Net.Documents.Document();
             string path = file.FullName;
             string folder = file.DirectoryName;
-            string final_folder = Regex.Replace(folder, "temp", " ");
+            //string final_folder = Regex.Replace(folder, "temp", " ");
             TextReader readFile = new StreamReader(path);
             string temp_fileName = file.Name;
             string fileName = Regex.Replace(temp_fileName, ".txt", "");
@@ -245,30 +227,7 @@ namespace Search_function.Controllers
             string metaContent = string.Empty;
             string temp_relativePath = string.Empty;
             string final_relativePath = string.Empty;
-            if (check_extention == ".cshtml" || check_extention == ".aspx" || check_extention == ".html" || check_extention == ".php")
-            {
-                relativePath relativepath = new relativePath(path);
-                temp_relativePath = relativepath.getRelativePath(folder);
-                final_relativePath = Regex.Replace(temp_relativePath, ".txt", "");
-                if (content != null)
-                {
-                    string plainText = Regex.Replace(content, @"(<script\b[^>]*>(.*?)<\/script>)|(<style\b[^>]*>(.*?)<\/style>)", "", RegexOptions.Singleline); //remove javascript and css
-                    string plainTextfromPageTemp = Regex.Replace(plainText, "<[^>]+?>|&\\w+;", ""); //remove HTML
-                    if (check_extention == ".cshtml")
-                    {
-                        string temp1PlainTextfromCSHTML = Regex.Replace(plainTextfromPageTemp, @"[@]\{([^\)]+)\}", ""); //remove all text betwwen @{ }
-                        string temp2PlainTextfromCSHTML = Regex.Replace(temp1PlainTextfromCSHTML, @"[@].*", ""); //remove line starting with @
-                        plainTextfromPageTemp = Regex.Replace(temp2PlainTextfromCSHTML, @"\{([^\)]+)\}", ""); //remove all text betwwen { }
-                    }
-                    string plainTextfromPage1 = Regex.Replace(plainTextfromPageTemp, @"(\t|\n|\r)", " ");//remove blank lines
-                    string plainTextfromPage = Regex.Replace(plainTextfromPage1, @"[ ]{2,}", " ");//remove unwanted spaces
-                    test_content = test_content + " " + plainTextfromPage;
-                    //collecting contents of meta tags
-                    metaContent = GetMetaTags(path);
-                }
-            }
-            else
-            {
+
                 //Assigning original path
                 pathList pathlist = new pathList();
                 string[] listofpath = pathlist.readPath();
@@ -288,38 +247,17 @@ namespace Search_function.Controllers
                 }
                 //
                 test_content = test_content + " " + content;
-            }
+            
             //doc.Add(new Field("contents", readFile));
             doc.Add(new Field("prevewContent", test_content, Field.Store.YES, Field.Index.ANALYZED, Field.TermVector.YES));
             doc.Add(new Field("URL", final_relativePath, Field.Store.YES, Field.Index.ANALYZED, Field.TermVector.YES));
             doc.Add(new Field("filename", fileName, Field.Store.YES, Field.Index.ANALYZED, Field.TermVector.YES));
             doc.Add(new Field("fileNameWithoutExtension", fileNameWithoutExtension, Field.Store.YES, Field.Index.ANALYZED, Field.TermVector.YES));
             doc.Add(new Field("metaTag", metaContent, Field.Store.YES, Field.Index.ANALYZED, Field.TermVector.YES));
+
             writer.AddDocument(doc);
             writer.Optimize();
             writer.Flush(true, true, true);
-        }
-
-        private static string GetMetaTags(string path)
-        {
-            var webGet = new HtmlWeb();
-            var document = webGet.Load(path);
-            var metaTags = document.DocumentNode.SelectNodes("//meta");
-            string metaDescription = string.Empty;
-            if (metaTags != null)
-            {
-                foreach (var tag in metaTags)
-                {
-                    if (tag.Attributes["name"] != null && tag.Attributes["content"] != null)
-                    {
-                        if (tag.Attributes["name"].Value == "description" || tag.Attributes["name"].Value == "keywords")
-                        {
-                            metaDescription = metaDescription + " " + tag.Attributes["content"].Value;
-                        }
-                    }
-                }
-            }
-            return metaDescription;
         }
 
         private static void deleteFiles(DirectoryInfo dataInfo)

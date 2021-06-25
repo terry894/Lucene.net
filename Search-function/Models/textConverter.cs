@@ -10,11 +10,13 @@ namespace Search_function.Models
 {
     public class textConverter
     {
+        private string currentSavePath_ = string.Empty;
         private string filePath = string.Empty;
         string tempPath1 = HttpContext.Current.Server.MapPath("/temp/path.txt");
         string pathInfo = string.Empty;
-        public textConverter(string pdfpaths)
+        public textConverter(string pdfpaths, String docSavePath)
         {
+            currentSavePath_ = docSavePath;
             filePath = pdfpaths;
         }
         public string pdfConverted()
@@ -58,12 +60,13 @@ namespace Search_function.Models
             foreach (string docxFile in docxFiles)
             {
                 string tempPath = HttpContext.Current.Server.MapPath("/temp");
-                pathInfo += docxFile + ",";
-                File.WriteAllText(tempPath1, pathInfo);
-                string filenameWithoutPath = System.IO.Path.GetFileName(docxFile);
-                DocxToText dtt = new DocxToText(filenameWithoutPath, docxFile);
-                docxText = dtt.ExtractText();
-                File.WriteAllText(System.IO.Path.Combine(tempPath, filenameWithoutPath + ".txt"), docxText);
+            pathInfo += docxFile + ",";
+            File.WriteAllText(tempPath1, pathInfo);
+            string filenameWithoutPath = System.IO.Path.GetFileName(docxFile);
+            DocxToText dtt = new DocxToText(filenameWithoutPath, docxFile);
+            docxText = dtt.ExtractText();
+            File.WriteAllText(System.IO.Path.Combine(tempPath, filenameWithoutPath + ".txt"), docxText);
+
             }
             return docxText;
         }
